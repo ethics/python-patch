@@ -12,6 +12,8 @@
 """
 from __future__ import print_function
 
+import itertools
+
 __author__ = "anatoly techtonik <techtonik@gmail.com>"
 __version__ = "1.16"
 
@@ -216,6 +218,7 @@ class Hunk(object):
     self.invalid=False
     self.desc=''
     self.text=[]
+    self.offset = [] # A hunk may be applicable with different offsets. If there is only one, there is not ambiguity.
 
 #  def apply(self, estream):
 #    """ write hunk data into enumerable stream
@@ -855,7 +858,7 @@ class PatchSet(object):
       return None, None
 
 
-  def apply(self, strip=0, root=None):
+  def apply(self, strip=0, root=None, allowoffset=False):
     """ Apply parsed patch, optionally stripping leading components
         from file paths. `root` parameter specifies working dir.
         return True on success
@@ -906,93 +909,113 @@ class PatchSet(object):
       f2fp = open(filenameo, 'rb')
       hunkno = 0
       hunk = p.hunks[hunkno]
-      hunkfind = []
-      hunkreplace = []
-      validhunks = 0
+      validhunks = []
       canpatch = False
-      for lineno, line in enumerate(f2fp):
-        if lineno+1 < hunk.startsrc:
-          continue
-        elif lineno+1 == hunk.startsrc:
-          hunkfind = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" -"]
-          hunkreplace = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" +"]
-          #pprint(hunkreplace)
-          hunklineno = 0
 
-          # todo \ No newline at end of file
+      hunkfind = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" -"]
 
-        # check hunks in source file
-        if lineno+1 < hunk.startsrc+len(hunkfind)-1:
-          if line.rstrip(b"\r\n") == hunkfind[hunklineno]:
-            hunklineno+=1
-          else:
-            info("file %d/%d:\t %s" % (i+1, total, filenamen))
-            info(" hunk no.%d doesn't match source file at line %d" % (hunkno+1, lineno+1))
-            info("  expected: %s" % hunkfind[hunklineno])
-            info("  actual  : %s" % line.rstrip(b"\r\n"))
-            # not counting this as error, because file may already be patched.
-            # check if file is already patched is done after the number of
-            # invalid hunks if found
-            # TODO: check hunks against source/target file in one pass
-            #   API - check(stream, srchunks, tgthunks)
-            #           return tuple (srcerrs, tgterrs)
+      lines = enumerate(f2fp)
+      for lineno, line in lines:
+        line = line.rstrip(b"\r\n")
 
-            # continue to check other hunks for completeness
-            hunkno += 1
-            if hunkno < len(p.hunks):
-              hunk = p.hunks[hunkno]
-              continue
-            else:
-              break
+        if (allowoffset and hunkfind and line == hunkfind[0]) or lineno+1 == hunk.startsrc:
+            hunklineno = 0
+            # check hunks in source file
+            candidate = [line] + [ j.rstrip(b"\r\n") for i, j in itertools.islice(lines, len(hunkfind)-1)]
+            if hunkfind == candidate:
+                ls = lineno + 1
+                h = hunk.startsrc
+                p.hunks[hunkno].offset.append(lineno + 1 - hunk.startsrc)
+                validhunks.append(p.hunks[hunkno])
+                hunkno += 1
+                if hunkno < len(p.hunks):
+                    hunk = p.hunks[hunkno]
+                    hunkfind = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" -"]
+                    continue
+                else:
+                    break
+
+              # todo \ No newline at end of file
+
+        # # check hunks in source file
+        # if lineno+1 < hunk.startsrc+len(hunkfind)-1 or offset != 0:
+        #   l = line.rstrip(b"\r\n")
+        #   h = hunkfind[hunklineno]
+        #   if line.rstrip(b"\r\n") == hunkfind[hunklineno]:
+        #     hunklineno+=1
+        #   else:
+        #     info("file %d/%d:\t %s" % (i+1, total, filenamen))
+        #     info(" hunk no.%d doesn't match source file at line %d" % (hunkno+1, lineno+1))
+        #     info("  expected: %s" % hunkfind[hunklineno])
+        #     info("  actual  : %s" % line.rstrip(b"\r\n"))
+        #     # not counting this as error, because file may already be patched.
+        #     # check if file is already patched is done after the number of
+        #     # invalid hunks if found
+        #     # TODO: check hunks against source/target file in one pass
+        #     #   API - check(stream, srchunks, tgthunks)
+        #     #           return tuple (srcerrs, tgterrs)
+
+        # continue to check other hunks for completeness
+        #hunkno += 1
+        #if hunkno < len(p.hunks):
+        #    hunk = p.hunks[hunkno]
+        #       continue
+        #     else:
+        #       break
 
         # check if processed line is the last line
-        if len(hunkfind) == 0 or lineno+1 == hunk.startsrc+len(hunkfind)-1:
-          debug(" hunk no.%d for file %s  -- is ready to be patched" % (hunkno+1, filenamen))
-          hunkno+=1
-          validhunks+=1
-          if hunkno < len(p.hunks):
-            hunk = p.hunks[hunkno]
-          else:
-            if validhunks == len(p.hunks):
-              # patch file
-              canpatch = True
-              break
-      else:
-        if hunkno < len(p.hunks):
-          warning("premature end of source file %s at hunk %d" % (filenameo, hunkno+1))
-          errors += 1
+        # if len(hunkfind) == 0:
+        #   debug(" hunk no.%d for file %s  -- is ready to be patched" % (hunkno+1, filenamen))
+        #   hunkno+=1
+        #   validhunks+=1
+        #   if hunkno < len(p.hunks):
+        #     hunk = p.hunks[hunkno]
+        #   else:
+        #     if validhunks == len(p.hunks):
+        #       # patch file
+        #       canpatch = True
+        #       break
+      #else:
+      #  if self._match_file_hunks(filenameo, p.hunks):
+      #    warning("already patched  %s" % filenameo)
+      #    return True
+      #  if hunkno < len(p.hunks):
+      #    warning("premature end of source file %s at hunk %d" % (filenameo, hunkno+1))
+      #    errors += 1
 
       f2fp.close()
 
-      if validhunks < len(p.hunks):
+      for validhunk in validhunks:
         if self._match_file_hunks(filenameo, p.hunks):
           warning("already patched  %s" % filenameo)
-        else:
-          warning("source file is different - %s" % filenameo)
-          errors += 1
-      if canpatch:
-        backupname = filenamen+b".orig"
-        if exists(backupname):
-          warning("can't backup original file to %s - aborting" % backupname)
-        else:
-          import shutil
-          shutil.move(filenamen, backupname)
-          if self.write_hunks(backupname if filenameo == filenamen else filenameo, filenamen, p.hunks):
-            info("successfully patched %d/%d:\t %s" % (i+1, total, filenamen))
-            os.unlink(backupname)
-            if new == b'/dev/null':
-              # check that filename is of size 0 and delete it.
-              if os.path.getsize(filenamen) > 0:
-                warning("expected patched file to be empty as it's marked as deletion:\t %s" % filenamen)
-              os.unlink(filenamen)
-          else:
-            errors += 1
-            warning("error patching file %s" % filenamen)
-            shutil.copy(filenamen, filenamen+".invalid")
-            warning("invalid version is saved to %s" % filenamen+".invalid")
-            # todo: proper rejects
-            shutil.move(backupname, filenamen)
+        #else:
+        #  warning("source file is different - %s" % filenameo)
+        #  errors += 1
 
+        if len(validhunk.offset) == 1: # there is not ambiguity
+            backupname = filenamen+b".orig"
+            if exists(backupname):
+              warning("can't backup original file to %s - aborting" % backupname)
+            else:
+              import shutil
+              shutil.move(filenamen, backupname)
+              if self.write_hunks(backupname if filenameo == filenamen else filenameo, filenamen, p.hunks):
+                info("successfully patched %d/%d:\t %s" % (i+1, total, filenamen))
+                os.unlink(backupname)
+                if new == b'/dev/null':
+                  # check that filename is of size 0 and delete it.
+                  if os.path.getsize(filenamen) > 0:
+                    warning("expected patched file to be empty as it's marked as deletion:\t %s" % filenamen)
+                  os.unlink(filenamen)
+              else:
+                errors += 1
+                warning("error patching file %s" % filenamen)
+                shutil.copy(filenamen, filenamen+".invalid")
+                warning("invalid version is saved to %s" % filenamen+".invalid")
+                # todo: proper rejects
+                shutil.move(backupname, filenamen)
+        else:
+            warning("The hunk @@- %d,%d +%d,%d @@ can be applied with different offsets: %s" % (validhunk.starttgt,validhunk.linestgt,validhunk.startsrc,validhunk.linessrc,validhunk.offset))
     if root:
       os.chdir(prevdir)
 
@@ -1004,6 +1027,7 @@ class PatchSet(object):
     """ reverse patch direction (this doesn't touch filenames) """
     for p in self.items:
       for h in p.hunks:
+        h.offset = [] #reset the offsets. They are not necesary valid anymore.
         h.startsrc, h.starttgt = h.starttgt, h.startsrc
         h.linessrc, h.linestgt = h.linestgt, h.linessrc
         for i,line in enumerate(h.text):

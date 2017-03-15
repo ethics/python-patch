@@ -424,6 +424,18 @@ class TestPatchApply(unittest.TestCase):
         pto.apply(strip=0, root=treeroot)
         self.assertFalse(os.path.exists(os.path.join(treeroot, 'deleted')))
 
+    def test_allowoffset(self):
+
+        def get_file_content(filename):
+            with open(filename, 'rb') as f:
+                return f.read()
+
+        self.tmpcopy(['10offset.patch',
+                      '10offset.from'])
+        pto = patch.fromfile('10offset.patch')
+        self.assertTrue(pto.apply(allowoffset=True))
+        self.assertEqual(get_file_content(self.tmpdir + '/10offset.from'),
+                            get_file_content(TESTS + '/10offset.to'))
 
 class TestHelpers(unittest.TestCase):
     # unittest setting
