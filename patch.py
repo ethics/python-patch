@@ -218,6 +218,7 @@ class Hunk(object):
     self.invalid=False
     self.desc=''
     self.text=[]
+    self.id = ''
     self.offset = [] # A hunk may be applicable with different offsets. If there is only one, there is not ambiguity.
 
 #  def apply(self, estream):
@@ -935,54 +936,6 @@ class PatchSet(object):
                 else:
                     break
 
-              # todo \ No newline at end of file
-
-        # # check hunks in source file
-        # if lineno+1 < hunk.startsrc+len(hunkfind)-1 or offset != 0:
-        #   l = line.rstrip(b"\r\n")
-        #   h = hunkfind[hunklineno]
-        #   if line.rstrip(b"\r\n") == hunkfind[hunklineno]:
-        #     hunklineno+=1
-        #   else:
-        #     info("file %d/%d:\t %s" % (i+1, total, filenamen))
-        #     info(" hunk no.%d doesn't match source file at line %d" % (hunkno+1, lineno+1))
-        #     info("  expected: %s" % hunkfind[hunklineno])
-        #     info("  actual  : %s" % line.rstrip(b"\r\n"))
-        #     # not counting this as error, because file may already be patched.
-        #     # check if file is already patched is done after the number of
-        #     # invalid hunks if found
-        #     # TODO: check hunks against source/target file in one pass
-        #     #   API - check(stream, srchunks, tgthunks)
-        #     #           return tuple (srcerrs, tgterrs)
-
-        # continue to check other hunks for completeness
-        #hunkno += 1
-        #if hunkno < len(p.hunks):
-        #    hunk = p.hunks[hunkno]
-        #       continue
-        #     else:
-        #       break
-
-        # check if processed line is the last line
-        # if len(hunkfind) == 0:
-        #   debug(" hunk no.%d for file %s  -- is ready to be patched" % (hunkno+1, filenamen))
-        #   hunkno+=1
-        #   validhunks+=1
-        #   if hunkno < len(p.hunks):
-        #     hunk = p.hunks[hunkno]
-        #   else:
-        #     if validhunks == len(p.hunks):
-        #       # patch file
-        #       canpatch = True
-        #       break
-      #else:
-      #  if self._match_file_hunks(filenameo, p.hunks):
-      #    warning("already patched  %s" % filenameo)
-      #    return True
-      #  if hunkno < len(p.hunks):
-      #    warning("premature end of source file %s at hunk %d" % (filenameo, hunkno+1))
-      #    errors += 1
-
       f2fp.close()
 
       for validhunk in validhunks:
@@ -1015,7 +968,14 @@ class PatchSet(object):
                 # todo: proper rejects
                 shutil.move(backupname, filenamen)
         else:
-            warning("The hunk @@- %d,%d +%d,%d @@ can be applied with different offsets: %s" % (validhunk.starttgt,validhunk.linestgt,validhunk.startsrc,validhunk.linessrc,validhunk.offset))
+            warning("The hunk %s can be applied with different offsets: %s" % (validhunk.id, validhunk.offset))
+
+
+    for h in p.hunks:
+        if len(h.offset) == 0:
+            warning("hunk %s could not be applied to file %s" % (h.id, filenameo))
+            errors += 1
+
     if root:
       os.chdir(prevdir)
 
