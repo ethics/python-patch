@@ -924,7 +924,7 @@ class PatchSet(object):
             if not allowoffset: break
 
           if (allowoffset and hunkfind and line == hunkfind[0]) or lineno == hunk.startsrc :
-              candidate = [line] + [ j.rstrip(b"\r\n") for i, j in itertools.islice(lines, len(hunkfind)-1 if len(hunkfind) else 0)]
+              candidate = [line] + [ j.rstrip(b"\r\n") for x, j in itertools.islice(lines, len(hunkfind)-1 if len(hunkfind) else 0)]
               lineno += len(hunkfind) - 1
               if hunkfind == candidate:
                   hunk.offset.append(lineno +1 - len(hunkfind) - hunk.startsrc)
