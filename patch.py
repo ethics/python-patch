@@ -235,6 +235,7 @@ class Hunk(object):
     htext.reverse()
     self.text = htext
     self.startsrc+=self.fuzz_fromTop
+    self.linessrc-=self.fuzz_fromBottom
 
 #  def apply(self, estream):
 #    """ write hunk data into enumerable stream

@@ -438,7 +438,6 @@ class TestPatchApply(unittest.TestCase):
                             get_file_content(TESTS + '/10offset.to'))
 
     def test_fuzz1T(self):
-
         def get_file_content(filename):
             with open(filename, 'rb') as f:
                 return f.read()
@@ -449,6 +448,18 @@ class TestPatchApply(unittest.TestCase):
         self.assertTrue(pto.apply(fuzz_fromTop=1))
         self.assertEqual(get_file_content(self.tmpdir + '/fuzz1T.from'),
                             get_file_content(TESTS + '/fuzz1T.to'))
+
+    def test_fuzz1B(self):
+        def get_file_content(filename):
+            with open(filename, 'rb') as f:
+                return f.read()
+
+        self.tmpcopy(['fuzz1B.patch',
+                      'fuzz1B.from'])
+        pto = patch.fromfile('fuzz1B.patch')
+        self.assertTrue(pto.apply(fuzz_fromBottom=1))
+        self.assertEqual(get_file_content(self.tmpdir + '/fuzz1B.from'),
+                            get_file_content(TESTS + '/fuzz1B.to'))
 
 class TestHelpers(unittest.TestCase):
     # unittest setting
