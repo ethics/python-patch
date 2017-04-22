@@ -1194,6 +1194,12 @@ def main():
                                            help="strip N path components from filenames")
   opt.add_option("--revert", action="store_true",
                                            help="apply patch in reverse order (unpatch)")
+  opt.add_option("-o", "--allow-offset", action="store_true", dest="allowOffset",
+                 help="allows offset in the injection point, based on the context", default=False)
+  opt.add_option("-t", "--fuzz-fromTop", metavar="N", dest="fuzzTop",
+                 default=0, help="Ignores the N first lines of the patch context")
+  opt.add_option("-b", "--fuzz-fromBottom", metavar="N", dest="fuzzBottom",
+                 default=0, help="Ignores the N last lines of the patch context")
   (options, args) = opt.parse_args()
 
   if not args and sys.argv[-1:] != ['--']:
@@ -1230,9 +1236,16 @@ def main():
 
   #pprint(patch)
   if options.revert:
-    patch.revert(options.strip, root=options.directory) or sys.exit(-1)
+    patch.revert(options.strip,
+                 root=options.directory
+                 ) or sys.exit(-1)
   else:
-    patch.apply(options.strip, root=options.directory) or sys.exit(-1)
+    patch.apply(options.strip,
+                root=options.directory,
+                allowoffset=options.allowOffset,
+                fuzz_fromTop=optinos.fuzzTop,
+                fuzz_fromBottom=optinos.fuzzBottom
+                ) or sys.exit(-1)
 
   # todo: document and test line ends handling logic - patch.py detects proper line-endings
   #       for inserted hunks and issues a warning if patched file has incosistent line ends
