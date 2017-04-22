@@ -1,0 +1,10 @@
+--- fuzz1T.from
++++ fuzz1T.to
+@@ -6,7 +6,6 @@
+ - fuzz
+ - svn diff
+ - hg diff
+-- lines 0
+ - lines 1
+ - lines 2
+ - lines 3

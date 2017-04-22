@@ -220,6 +220,21 @@ class Hunk(object):
     self.text=[]
     self.id = ''
     self.offset = [] # A hunk may be applicable with different offsets. If there is only one, there is not ambiguity.
+    self.fuzz_fromTop = self.fuzz_fromBottom = 0
+
+  def fuzz(self):
+    def f(a, t):
+      for hline in t:
+        if a and not hline.startswith(b"+"):
+          a -= 1
+          continue
+        yield hline
+    htext = [i for i in f(self.fuzz_fromTop, self.text)]
+    htext.reverse()
+    htext = [i for i in f(self.fuzz_fromBottom, htext)]
+    htext.reverse()
+    self.text = htext
+    self.startsrc+=self.fuzz_fromTop
 
 #  def apply(self, estream):
 #    """ write hunk data into enumerable stream
@@ -859,7 +874,7 @@ class PatchSet(object):
       return None, None
 
 
-  def apply(self, strip=0, root=None, allowoffset=False):
+  def apply(self, strip=0, root=None, allowoffset=False, fuzz_fromTop=0, fuzz_fromBottom=0):
     """ Apply parsed patch, optionally stripping leading components
         from file paths. `root` parameter specifies working dir.
         return True on success
@@ -910,33 +925,40 @@ class PatchSet(object):
       f2fp = open(filenameo, 'rb')
       validhunks = []
       canpatch = False
-      lineno = 0
 
+      lines = itertools.tee(enumerate(f2fp))[0]
       for hunk in p.hunks:
+
+       if hunk.startsrc == 0:  # This is the case where the file needs to be created
+         hunk.offset.append(0)
+         validhunks.append(hunk)
+         if not allowoffset: break
+
+       # applying fuzzing
+       if fuzz_fromTop or fuzz_fromBottom:
+          info("Fuzzed searching: ignoring %d lines from the top and %d from the bottom of the context. " % (fuzz_fromTop, fuzz_fromBottom))
+          hunk.fuzz_fromTop, hunk.fuzz_fromBottom = fuzz_fromTop, fuzz_fromBottom
+          hunk.fuzz()
+          # allowoffset = True TODO, probably, remove this line.
+
        hunkfind = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" -"]
-       lines = enumerate(f2fp)
-       for line in f2fp:
+
+       if len(''.join(hunkfind).strip()) == 0:
+          sys.exit("The context to insert the patch is empty. That's way to ambiguous")
+
+       for lineno,line in lines:
           lineno += 1
           line = line.rstrip(b"\r\n")
-          if hunk.startsrc == 0: # This is the case where the file needs to be created
-            hunk.offset.append(0)
-            validhunks.append(hunk)
-            if not allowoffset: break
 
           if (allowoffset and hunkfind and line == hunkfind[0]) or lineno == hunk.startsrc :
-              candidate = [line] + [ j.rstrip(b"\r\n") for x, j in itertools.islice(lines, len(hunkfind)-1 if len(hunkfind) else 0)]
-              lineno += len(hunkfind) - 1
+
+              lines, tmp_f = itertools.tee(lines)
+              candidate = [line] + [j.rstrip(b"\r\n") for x, j in itertools.islice(tmp_f, len(hunkfind) - 1 if len(hunkfind) else 0)]
+
               if hunkfind == candidate:
-                  hunk.offset.append(lineno +1 - len(hunkfind) - hunk.startsrc)
-                  validhunks.append(hunk)
-                  if not allowoffset: break
-                  # hunkno += 1
-                  # if hunkno < len(p.hunks):
-                  #     hunk = p.hunks[hunkno]
-                  #     hunkfind = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" -"]
-                  #     continue
-                  #else:
-                  #    break
+                hunk.offset.append(lineno - hunk.startsrc - fuzz_fromTop)
+                validhunks.append(hunk)
+                if not allowoffset: break
 
       f2fp.close()
 
@@ -1095,8 +1117,9 @@ class PatchSet(object):
         warning("The hunk %s can be applied with different offsets: %s" % (h.id, h.offset))
         raise Exception("The hunk %s can be applied with different offsets: %s" % (h.id, h.offset))
 
-      while srclineno < h.startsrc:
-        yield get_line()
+      while srclineno < h.startsrc :
+        plpl = get_line()
+        yield plpl
         srclineno += 1
 
       for hline in h.text:
@@ -1127,8 +1150,7 @@ class PatchSet(object):
 
     debug("processing target file %s" % tgtname)
 
-    a = [ i for i in self.patch_stream(src, hunks)]
-    tgt.writelines(a)
+    tgt.writelines(self.patch_stream(src, hunks))
 
     tgt.close()
     src.close()

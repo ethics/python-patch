@@ -437,6 +437,19 @@ class TestPatchApply(unittest.TestCase):
         self.assertEqual(get_file_content(self.tmpdir + '/10offset.from'),
                             get_file_content(TESTS + '/10offset.to'))
 
+    def test_fuzz1T(self):
+
+        def get_file_content(filename):
+            with open(filename, 'rb') as f:
+                return f.read()
+
+        self.tmpcopy(['fuzz1T.patch',
+                      'fuzz1T.from'])
+        pto = patch.fromfile('fuzz1T.patch')
+        self.assertTrue(pto.apply(fuzz_fromTop=1))
+        self.assertEqual(get_file_content(self.tmpdir + '/fuzz1T.from'),
+                            get_file_content(TESTS + '/fuzz1T.to'))
+
 class TestHelpers(unittest.TestCase):
     # unittest setting
     longMessage = True
