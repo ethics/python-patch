@@ -951,7 +951,7 @@ class PatchSet(object):
           lineno += 1
           line = line.rstrip(b"\r\n")
 
-          if (allowoffset and hunkfind and line == hunkfind[0]) or lineno == hunk.startsrc :
+          if (allowoffset and hunkfind and line == hunkfind[0]) or (not allowoffset and lineno == hunk.startsrc) :
 
               lines, tmp_f = itertools.tee(lines)
               candidate = [line] + [j.rstrip(b"\r\n") for x, j in itertools.islice(tmp_f, len(hunkfind) - 1 if len(hunkfind) else 0)]
@@ -993,7 +993,7 @@ class PatchSet(object):
 
     for h in p.hunks:
         if len(h.offset) == 0:
-            warning("hunk %s could not be applied to file %s" % (h.id, filenameo))
+            warning("hunk %s could not be applied to file %s" % (h.id, filenameo)) #TODO what is h.id?
             errors += 1
 
     if root:
@@ -1196,9 +1196,9 @@ def main():
                                            help="apply patch in reverse order (unpatch)")
   opt.add_option("-o", "--allow-offset", action="store_true", dest="allowOffset",
                  help="allows offset in the injection point, based on the context", default=False)
-  opt.add_option("-t", "--fuzz-fromTop", metavar="N", dest="fuzzTop",
+  opt.add_option("-t", "--fuzz-fromTop", metavar="N", dest="fuzzTop", type="int",
                  default=0, help="Ignores the N first lines of the patch context")
-  opt.add_option("-b", "--fuzz-fromBottom", metavar="N", dest="fuzzBottom",
+  opt.add_option("-b", "--fuzz-fromBottom", metavar="N", dest="fuzzBottom", type="int",
                  default=0, help="Ignores the N last lines of the patch context")
   (options, args) = opt.parse_args()
 
@@ -1234,17 +1234,19 @@ def main():
     print(patch.diffstat())
     sys.exit(0)
 
-  #pprint(patch)
   if options.revert:
     patch.revert(options.strip,
-                 root=options.directory
+                 root=options.directory,
+                 allowoffset=options.allowOffset,
+                 fuzz_fromTop=options.fuzzTop,
+                 fuzz_fromBottom=options.fuzzBottom
                  ) or sys.exit(-1)
   else:
     patch.apply(options.strip,
                 root=options.directory,
                 allowoffset=options.allowOffset,
-                fuzz_fromTop=optinos.fuzzTop,
-                fuzz_fromBottom=optinos.fuzzBottom
+                fuzz_fromTop=options.fuzzTop,
+                fuzz_fromBottom=options.fuzzBottom
                 ) or sys.exit(-1)
 
   # todo: document and test line ends handling logic - patch.py detects proper line-endings

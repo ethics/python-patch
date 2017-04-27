@@ -1,0 +1,15 @@
+--- fuzz3T.from
++++ fuzz3T.to
+@@ -2,10 +2,10 @@
+  line 02 fuzz
+  line 03 fuzz
+  line 04 fuzz
++ line 99
+  line 05
+  line 06
+- line 999
+- line 99
++ line 07
+  line 08
+  line 09
+  line 10

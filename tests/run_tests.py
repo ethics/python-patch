@@ -358,6 +358,7 @@ class TestPatchApply(unittest.TestCase):
         self.save_cwd = getcwdu()
         self.tmpdir = mkdtemp(prefix=self.__class__.__name__)
         os.chdir(self.tmpdir)
+        self.maxDiff=None
 
     def tearDown(self):
         os.chdir(self.save_cwd)
@@ -381,10 +382,6 @@ class TestPatchApply(unittest.TestCase):
         self.assertTrue(pto.apply())
 
     def test_revert(self):
-        def get_file_content(filename):
-            with open(filename, 'rb') as f:
-                return f.read()
-
         self.tmpcopy(['03trail_fname.patch',
                       '03trail_fname.from'])
         pto = patch.fromfile('03trail_fname.patch')
@@ -425,41 +422,12 @@ class TestPatchApply(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(treeroot, 'deleted')))
 
     def test_allowoffset(self):
-
-        def get_file_content(filename):
-            with open(filename, 'rb') as f:
-                return f.read()
-
         self.tmpcopy(['10offset.patch',
                       '10offset.from'])
         pto = patch.fromfile('10offset.patch')
         self.assertTrue(pto.apply(allowoffset=True))
         self.assertEqual(get_file_content(self.tmpdir + '/10offset.from'),
                             get_file_content(TESTS + '/10offset.to'))
-
-    def test_fuzz1T(self):
-        def get_file_content(filename):
-            with open(filename, 'rb') as f:
-                return f.read()
-
-        self.tmpcopy(['fuzz1T.patch',
-                      'fuzz1T.from'])
-        pto = patch.fromfile('fuzz1T.patch')
-        self.assertTrue(pto.apply(fuzz_fromTop=1))
-        self.assertEqual(get_file_content(self.tmpdir + '/fuzz1T.from'),
-                            get_file_content(TESTS + '/fuzz1T.to'))
-
-    def test_fuzz1B(self):
-        def get_file_content(filename):
-            with open(filename, 'rb') as f:
-                return f.read()
-
-        self.tmpcopy(['fuzz1B.patch',
-                      'fuzz1B.from'])
-        pto = patch.fromfile('fuzz1B.patch')
-        self.assertTrue(pto.apply(fuzz_fromBottom=1))
-        self.assertEqual(get_file_content(self.tmpdir + '/fuzz1B.from'),
-                            get_file_content(TESTS + '/fuzz1B.to'))
 
 class TestHelpers(unittest.TestCase):
     # unittest setting
@@ -494,5 +462,33 @@ class TestHelpers(unittest.TestCase):
 
 # ----------------------------------------------------------------------------
 
+def get_file_content(filename):
+    with open(filename, 'rb') as f:
+        return f.read()
+
+def test_generator(param, file_patch, file_from, file_to):
+    def test(self):
+        self.tmpcopy([file_patch,file_from])
+        pto = patch.fromfile(join(TESTS, file_patch))
+        self.assertTrue(pto.apply(**param))
+        self.assertMultiLineEqual(get_file_content(join(self.tmpdir, os.path.basename(file_from))),
+                            get_file_content(join(TESTS,file_to)))
+    return test
+
 if __name__ == '__main__':
+    tests = [
+        #Name, param, patch, from, to
+        ['fuzz1T', {'fuzz_fromTop': 1},
+         'fuzz1T.patch','fuzz1T.from','fuzz1T.to'],
+        ['fuzz1B', {'fuzz_fromBottom': 1},
+         'fuzz1B.patch','fuzz1B.from','fuzz1B.to'],
+        ['fuzz3T', {'fuzz_fromTop': 3},
+         'fuzz3T.patch','fuzz3T.from','fuzz3T.to'],
+        ['1_typd_mlc', {'allowoffset':True,'fuzz_fromTop': 3},
+         'gc-7.2/typd_mlc.c.1.patch', 'gc-7.2/typd_mlc.c', 'gc-7.2/typd_mlc.c.1.to'],
+    ]
+
+    for t in tests:
+        setattr(TestPatchApply, 'test_%s' % t[0], test_generator(t[1], t[2], t[3], t[4]))
+
     unittest.main()
