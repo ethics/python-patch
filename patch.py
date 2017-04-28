@@ -957,7 +957,7 @@ class PatchSet(object):
               candidate = [line] + [j.rstrip(b"\r\n") for x, j in itertools.islice(tmp_f, len(hunkfind) - 1 if len(hunkfind) else 0)]
 
               if hunkfind == candidate:
-                hunk.offset.append(lineno - hunk.startsrc - fuzz_fromTop)
+                hunk.offset.append(lineno - hunk.startsrc)
                 validhunks.append(hunk)
                 if not allowoffset: break
 
@@ -1118,7 +1118,7 @@ class PatchSet(object):
         warning("The hunk %s can be applied with different offsets: %s" % (h.id, h.offset))
         raise Exception("The hunk %s can be applied with different offsets: %s" % (h.id, h.offset))
 
-      while srclineno < h.startsrc :
+      while srclineno < (h.startsrc + h.offset[0]):
         plpl = get_line()
         yield plpl
         srclineno += 1
