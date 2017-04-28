@@ -640,21 +640,18 @@ GC_API void * GC_CALL GC_malloc_explicitly_typed_ignore_off_page(size_t lb,
         }
         ((word *)op)[GRANULES_TO_WORDS(lg) - 1] = d;
    } else {
-    if ((lb | n) > GC_SQRT_SIZE_MAX /* fast initial check */
-        && lb > 0 && n > GC_SIZE_MAX / lb)
-      return NULL; /* n*lb overflow */
-    lb *= n;
-    switch(descr_type) {
-        case NO_MEM: return(0);
-        case SIMPLE:
-            return GC_malloc_explicitly_typed(lb, simple_descr);
-        case LEAF:
-            lb += sizeof(struct LeafDescriptor) + TYPD_EXTRA_BYTES;
-            break;
-        case COMPLEX:
-            lb += TYPD_EXTRA_BYTES;
-            break;
-    }
+       op = (ptr_t)GENERAL_MALLOC_IOP(lb, GC_explicit_kind);
+       if (op != NULL) {
+         lg = BYTES_TO_WORDS(GC_size(op));
+         ((word *)op)[GRANULES_TO_WORDS(lg) - 1] = d;
+       }
+   }
+   return((void *) op);
+}
+
+GC_API void * GC_CALL GC_calloc_explicitly_typed(size_t n, size_t lb,
+                                                 GC_descr d)
+{
     ptr_t op;
     ptr_t * opp;
     size_t lg;
