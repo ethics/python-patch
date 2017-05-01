@@ -5,6 +5,8 @@
     Brute-force line-by-line non-recursive parsing 
 
     Copyright (c) 2008-2016 anatoly techtonik
+    Copyright (c) 2017 Luciano Bello
+    
     Available under the terms of MIT license
 
     https://github.com/techtonik/python-patch/
@@ -210,6 +212,10 @@ def pathstrip(path, n):
 class Hunk(object):
   """ Parsed hunk data container (hunk starts with @@ -R +R @@) """
 
+  # status CONST
+  PENDING="pending"
+  APPLICABLE="applicable"
+
   def __init__(self):
     self.startsrc=None #: line count starts with 1
     self.linessrc=None
@@ -221,6 +227,7 @@ class Hunk(object):
     self.id = ''
     self.offset = [] # A hunk may be applicable with different offsets. If there is only one, there is not ambiguity.
     self.fuzz_fromTop = self.fuzz_fromBottom = 0
+    self.status = Hunk.PENDING
 
   def fuzz(self):
     def f(a, t):
@@ -237,16 +244,27 @@ class Hunk(object):
     self.startsrc+=self.fuzz_fromTop
     self.linessrc-=self.fuzz_fromBottom
 
-#  def apply(self, estream):
-#    """ write hunk data into enumerable stream
-#        return strings one by one until hunk is
-#        over
-#
-#        enumerable stream are tuples (lineno, line)
-#        where lineno starts with 0
-#    """
-#    pass
+  def applicable(self, strip=0, root=None, allowoffset=False, fuzz_fromTop=0, fuzz_fromBottom=0):
+      if root:
+          prevdir = os.getcwd()
+          os.chdir(root)
 
+      total = len(self.items)
+      errors = 0
+      if strip:
+          # [ ] test strip level exceeds nesting level
+          #   [ ] test the same only for selected files
+          #     [ ] test if files end up being on the same level
+          try:
+              strip = int(strip)
+          except ValueError:
+              errors += 1
+              warning("error: strip parameter '%s' must be an integer" % strip)
+              strip = 0
+      return (errors == 0)
+
+  def apply(self, strip=0, root=None, allowoffset=False, fuzz_fromTop=0, fuzz_fromBottom=0):
+      """ Apply parsed hunk"""
 
 class Patch(object):
   """ Patch for a single file.
@@ -874,30 +892,29 @@ class PatchSet(object):
           return new, new
       return None, None
 
-
   def apply(self, strip=0, root=None, allowoffset=False, fuzz_fromTop=0, fuzz_fromBottom=0):
     """ Apply parsed patch, optionally stripping leading components
         from file paths. `root` parameter specifies working dir.
         return True on success
     """
+
     if root:
-      prevdir = os.getcwd()
-      os.chdir(root)
+        prevdir = os.getcwd()
+        os.chdir(root)
 
     total = len(self.items)
     errors = 0
     if strip:
-      # [ ] test strip level exceeds nesting level
-      #   [ ] test the same only for selected files
-      #     [ ] test if files end up being on the same level
-      try:
-        strip = int(strip)
-      except ValueError:
-        errors += 1
-        warning("error: strip parameter '%s' must be an integer" % strip)
-        strip = 0
+        # [ ] test strip level exceeds nesting level
+        #   [ ] test the same only for selected files
+        #     [ ] test if files end up being on the same level
+        try:
+            strip = int(strip)
+        except ValueError:
+            errors += 1
+            warning("error: strip parameter '%s' must be an integer" % strip)
+            strip = 0
 
-    #for fileno, filename in enumerate(self.source):
     for i,p in enumerate(self.items):
       if strip:
         debug("stripping %s leading component(s) from:" % strip)
@@ -931,7 +948,7 @@ class PatchSet(object):
       for hunk in p.hunks:
 
        if hunk.startsrc == 0:  # This is the case where the file needs to be created
-         hunk.offset.append(0)
+         hunk.offset.append((filenameo,0))
          validhunks.append(hunk)
          if not allowoffset: break
 
@@ -957,7 +974,7 @@ class PatchSet(object):
               candidate = [line] + [j.rstrip(b"\r\n") for x, j in itertools.islice(tmp_f, len(hunkfind) - 1 if len(hunkfind) else 0)]
 
               if hunkfind == candidate:
-                hunk.offset.append(lineno - hunk.startsrc)
+                hunk.offset.append((filenameo,lineno - hunk.startsrc))
                 validhunks.append(hunk)
                 if not allowoffset: break
 
@@ -1118,7 +1135,7 @@ class PatchSet(object):
         warning("The hunk %s can be applied with different offsets: %s" % (h.id, h.offset))
         raise Exception("The hunk %s can be applied with different offsets: %s" % (h.id, h.offset))
 
-      while srclineno < (h.startsrc + h.offset[0]):
+      while srclineno < (h.startsrc + h.offset[0][1]):
         plpl = get_line()
         yield plpl
         srclineno += 1
