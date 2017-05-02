@@ -467,12 +467,19 @@ def get_file_content(filename):
         return f.read()
 
 def test_generator(param, file_patch, file_from, file_to):
+    from glob import glob
     def test(self):
         self.tmpcopy([file_patch,file_from])
         pto = patch.fromfile(join(TESTS, file_patch))
         self.assertTrue(pto.apply(**param))
-        self.assertMultiLineEqual(get_file_content(join(self.tmpdir, os.path.basename(file_from))),
-                            get_file_content(join(TESTS,file_to)))
+        ftos = glob(join(TESTS,file_to+'.*'))
+        if ftos > 1:
+           for no,fto in enumerate(ftos):
+               self.assertMultiLineEqual(get_file_content(join(self.tmpdir, "%s.%d" % (os.path.basename(file_from),no))),
+                            get_file_content(fto))
+        else:
+            self.assertMultiLineEqual(get_file_content(join(self.tmpdir, os.path.basename(file_from))),
+                                      get_file_content(ftos[0]))
     return test
 
 if __name__ == '__main__':
@@ -486,6 +493,8 @@ if __name__ == '__main__':
          'fuzz3T.patch','fuzz3T.from','fuzz3T.to'],
         ['1_typd_mlc', {'allowoffset':True,'fuzz_fromTop': 3},
          'gc-7.2/typd_mlc.c.1.patch', 'gc-7.2/typd_mlc.c', 'gc-7.2/typd_mlc.c.1.to'],
+        ['0_typd_mlc', {'allowoffset': True, 'fuzz_fromBottom': 3},
+         'gc-7.2/typd_mlc.c.0.patch', 'gc-7.2/typd_mlc.c', 'gc-7.2/typd_mlc.c.0.to'],
     ]
 
     for t in tests:
