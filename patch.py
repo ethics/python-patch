@@ -936,7 +936,9 @@ class PatchSet(object):
        hunkfind = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" -"]
 
        if len(''.join(hunkfind).strip()) == 0:
-          sys.exit("The context to insert the patch is empty. That's way to ambiguous")
+          warning("The context to insert the patch is empty. That's way too ambiguous")
+          errors += 1
+          continue
 
        for lineno,line in lines:
           lineno += 1
@@ -954,8 +956,18 @@ class PatchSet(object):
 
       f2fp.close()
 
+      for h in p.hunks:
+          if not len(h.offset):
+              warning("hunk %s could not be applied to file %s" % (h.id, filenameo))
+              errors += 1
+
+      if not len(validhunks):
+          warning("It is not possible to patch anything in %s - aborting" % (filenameo))
+          errors += 1
+          continue
+
       if self._match_file_hunks(filenameo, p.hunks):
-        warning("already patched  %s" % filenameo)
+        warning("already patched  %s" % filenameo) #TODO check when ambiguous application
       # else:
       #  warning("source file is different - %s" % filenameo)
       #  errors += 1
@@ -981,11 +993,6 @@ class PatchSet(object):
           warning("invalid version is saved to %s" % filenamen+".invalid")
           # todo: proper rejects
           shutil.move(backupname, filenamen)
-
-    for h in p.hunks:
-        if len(h.offset) == 0:
-            warning("hunk %s could not be applied to file %s" % (h.id, filenameo))
-            errors += 1
 
     if root:
       os.chdir(prevdir)
@@ -1162,7 +1169,7 @@ class PatchSet(object):
         for fileno,ch in enumerate(self.combine_ambiguous_hunks(hunks)):
            src.seek(0)
            tgtnamewno="%s.%d" % (tgtname,fileno)
-           tgt = open(tgtnamewno, "wb")
+           tgt = open(tgtnamewno, "wb") #TODO preexistance-check
            debug("processing target file %s" % tgtnamewno)
            tgt.writelines(self.patch_stream(src, ch))
            tgtnames+=[tgtnamewno]
