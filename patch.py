@@ -866,7 +866,7 @@ class PatchSet(object):
           return new, new
       return None, None
 
-  def apply(self, strip=0, root=None, allowoffset=False, fuzz_fromTop=0, fuzz_fromBottom=0):
+  def apply(self, strip=0, root=None, keep_orig=False, allowoffset=False, fuzz_fromTop=0, fuzz_fromBottom=0):
     """ Apply parsed patch, optionally stripping leading components
         from file paths. `root` parameter specifies working dir.
         return True on success
@@ -899,7 +899,7 @@ class PatchSet(object):
       else:
         old, new = p.source, p.target
 
-      filenameo, filenamen = self.findfiles(old, new)
+      p.filenameo, p.filenamen = filenameo, filenamen = self.findfiles(old, new)
 
       if not filenameo or not filenamen:
           warning("source/target file does not exist:\n  --- %s\n  +++ %s" % (old, new))
@@ -980,7 +980,7 @@ class PatchSet(object):
         shutil.move(filenamen, backupname)
         if self.write_hunks(backupname if filenameo == filenamen else filenameo, filenamen, validhunks):
           info("successfully patched %d/%d:\t %s" % (i+1, total, filenamen))
-          os.unlink(backupname)
+          if not keep_orig: os.unlink(backupname)
           if new == b'/dev/null':
             # check that filename is of size 0 and delete it.
             if os.path.getsize(filenamen) > 0:
