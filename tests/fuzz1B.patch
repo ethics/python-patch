@@ -1,0 +1,10 @@
+--- fuzz1B.from
++++ fuzz1B.to
+@@ -6,7 +6,6 @@
+ - remove files
+ - svn diff
+ - hg diff
+-- lines 0
+ - lines 1
+ - lines 2
+ - fuzz
