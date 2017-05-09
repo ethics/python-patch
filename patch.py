@@ -181,7 +181,7 @@ def fromstring(s):
   """ Parse text string and return PatchSet()
       object (or False if parsing fails)
   """
-  ps = PatchSet( StringIO(s) )
+  ps = PatchSet( StringIO(s.encode("utf-8")) )
   if ps.errors == 0:
     return ps
   return False
