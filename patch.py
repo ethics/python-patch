@@ -113,9 +113,12 @@ DIFF = PLAIN = "plain"
 GIT = "git"
 HG = MERCURIAL = "mercurial"
 SVN = SUBVERSION = "svn"
+VCS = "generic VCS" #the files start with a/ and b/, but they are not coming from a known VCS
+
 # mixed type is only actual when PatchSet contains
 # Patches of different type
-MIXED = MIXED = "mixed"
+MIXED = "mixed"
+
 
 
 #------------------------------------------------
@@ -712,6 +715,9 @@ class PatchSet(object):
         elif p.header[0].startswith(b'# HG changeset patch'):
           return HG
 
+    if DVCS: # A generic VCS, the a/ and b/ have to be removed
+      return VCS
+
     return PLAIN
 
 
@@ -733,7 +739,7 @@ class PatchSet(object):
         debug("    patch type = %s" % p.type)
         debug("    source = %s" % p.source)
         debug("    target = %s" % p.target)
-      if p.type in (HG, GIT):
+      if p.type in (HG, GIT, VCS):
         debug("stripping a/ and b/ prefixes")
         if p.source != b'/dev/null':
           if not p.source.startswith(b"a/"):
