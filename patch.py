@@ -281,7 +281,7 @@ class PatchSet(object):
     # --- /API ---
 
     if stream:
-      self.parse(stream)
+      if not self.parse(stream): raise Exception('Patch parsing error')
 
   def __len__(self):
     return len(self.items)
