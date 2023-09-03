@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
     Patch utility to apply unified diffs
 
@@ -941,7 +941,7 @@ class PatchSet(object):
 
        hunkfind = [x[1:].rstrip(b"\r\n") for x in hunk.text if x[0] in b" -"]
 
-       if len(''.join(hunkfind).strip()) == 0:
+       if len(''.join(item.decode('utf-8') if isinstance(item, bytes) else item for item in hunkfind).strip()) == 0:
           warning("The context to insert the patch is empty. That's way too ambiguous")
           errors += 1
           continue
